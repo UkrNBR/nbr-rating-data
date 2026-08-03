@@ -333,14 +333,35 @@ function rozibratyZapyt_(q) {
  */
 
 function doPost(e) {
+  // ⛔ HtmlService, а НЕ ContentService: ContentService віддає 302-редірект,
+  // телеграм вважає доставку невдалою і повторює оновлення з наростаючою затримкою.
+  // Так само зроблено в робочому боті заявок (@national_business_rating_bot).
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(30000); } catch (e1) {}
   try {
     var upd = JSON.parse(e.postData.contents);
-    if (upd.message)        obrobytyPovidomlennya_(upd.message);
+    if (upd.update_id && dubl_(upd.update_id)) return HtmlService.createHtmlOutput('ok');
+    if (upd.message)             obrobytyPovidomlennya_(upd.message);
     else if (upd.callback_query) obrobytyKnopku_(upd.callback_query);
   } catch (err) {
     zapysatyPomylku_(err);
+  } finally {
+    try { lock.releaseLock(); } catch (e2) {}
   }
-  return ContentService.createTextOutput('ok');
+  return HtmlService.createHtmlOutput('ok');
+}
+
+/**
+ * Захист від повторів: телеграм може надіслати те саме оновлення ще раз
+ * (наприклад, якщо відповідь забарилась). Без цієї перевірки менеджер
+ * отримував би по кілька однакових відповідей.
+ */
+function dubl_(id) {
+  if (!id) return false;
+  var c = CacheService.getScriptCache(), k = 'upd' + id;
+  if (c.get(k)) return true;
+  c.put(k, '1', 3600);
+  return false;
 }
 
 function doGet() {
