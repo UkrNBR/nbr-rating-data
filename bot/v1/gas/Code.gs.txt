@@ -1,0 +1,593 @@
+/**
+ * НБР — БОТ ДЛЯ МЕНЕДЖЕРІВ (варіант А: Apps Script + покажчик на GitHub Pages)
+ * Файл службових функцій. Назва починається з AAA, щоб кнопка «Запустити»
+ * у редакторі одразу цілилась у потрібну функцію (пастка 2n у STAN-PROEKTU.md).
+ *
+ * ПОРЯДОК ЗАПУСКУ ОДИН РАЗ:
+ *   1) nalashtuvaty()      — записати BOT_TOKEN і дати дозволи Google
+ *   2) розгорнути як веб-застосунок (clasp deploy або «Розгорнути» в редакторі)
+ *   3) zapysatyWebhook()   — сказати телеграму, куди слати повідомлення
+ *   4) perevirka()         — самоперевірка: токен, покажчик, вебхук
+ *
+ * Властивості скрипту:
+ *   BOT_TOKEN   — токен від @BotFather
+ *   WEBHOOK_URL — адреса веб-застосунку (…/exec)
+ *   MANAGERS    — (необовʼязково) telegram id менеджерів через кому; порожньо = доступ усім
+ *   LOG_ID      — id таблиці журналу запитів (створюється автоматично)
+ */
+
+// ⛔ Перед першим запуском вписати токен від @BotFather між лапками:
+var TOKEN_DLYA_ZAPYSU = '';
+
+function nalashtuvaty() {
+  var p = PropertiesService.getScriptProperties();
+  if (TOKEN_DLYA_ZAPYSU) p.setProperty('BOT_TOKEN', TOKEN_DLYA_ZAPYSU);
+  var tok = p.getProperty('BOT_TOKEN');
+  if (!tok) throw new Error('Немає BOT_TOKEN. Впишіть його у TOKEN_DLYA_ZAPYSU і запустіть ще раз.');
+
+  // журнал запитів
+  if (!p.getProperty('LOG_ID')) {
+    var ss = SpreadsheetApp.create('НБР — журнал запитів бота менеджерів');
+    var sh = ss.getSheets()[0];
+    sh.setName('Запити');
+    sh.getRange(1, 1, 1, 6)
+      .setValues([['Дата', 'Менеджер', 'Telegram id', 'Запит', 'Знайдено', 'Що показано']])
+      .setFontWeight('bold');
+    sh.setFrozenRows(1);
+    p.setProperty('LOG_ID', ss.getId());
+  }
+
+  // прогріваємо кеш покажчика і перевіряємо звʼязок
+  var meta = JSON.parse(UrlFetchApp.fetch(BAZA + 'meta.json').getContentText());
+  var me   = JSON.parse(UrlFetchApp.fetch(TG + tok + '/getMe').getContentText());
+
+  var out = {
+    bot:        me.ok ? '@' + me.result.username : 'ПОМИЛКА ТОКЕНА',
+    pokazhchyk: meta.companies + ' компаній, ' + meta.kved + ' КВЕД, версія ' + meta.version,
+    zhurnal:    'https://docs.google.com/spreadsheets/d/' + p.getProperty('LOG_ID'),
+    webhook:    p.getProperty('WEBHOOK_URL') || '(ще не задано — розгорніть веб-застосунок)'
+  };
+  Logger.log(JSON.stringify(out, null, 2));
+  return out;
+}
+
+/** Записати адресу веб-застосунку і повісити вебхук телеграма. */
+function zapysatyWebhook() {
+  var p   = PropertiesService.getScriptProperties();
+  var url = p.getProperty('WEBHOOK_URL') || ScriptApp.getService().getUrl();
+  if (!url) throw new Error('Немає адреси веб-застосунку. Спочатку розгорніть скрипт.');
+  p.setProperty('WEBHOOK_URL', url);
+  var r = JSON.parse(UrlFetchApp.fetch(
+    TG + p.getProperty('BOT_TOKEN') + '/setWebhook' +
+    '?url=' + encodeURIComponent(url) +
+    '&drop_pending_updates=true' +
+    '&allowed_updates=' + encodeURIComponent('["message","callback_query"]')
+  ).getContentText());
+  Logger.log(JSON.stringify(r));
+  nastroytyKomandy();
+  return r;
+}
+
+/** Підказки команд у меню телеграма. */
+function nastroytyKomandy() {
+  var tok = PropertiesService.getScriptProperties().getProperty('BOT_TOKEN');
+  var cmds = [
+    { command: 'start',  description: 'Початок і коротка інструкція' },
+    { command: 'kved',   description: 'Знайти КВЕД за словом у назві' },
+    { command: 'dopomoga', description: 'Як користуватись' }
+  ];
+  return UrlFetchApp.fetch(TG + tok + '/setMyCommands', {
+    method: 'post', contentType: 'application/json',
+    payload: JSON.stringify({ commands: cmds })
+  }).getContentText();
+}
+
+/** Самоперевірка: токен, покажчик, вебхук, пробні пошуки. */
+function perevirka() {
+  var p = PropertiesService.getScriptProperties();
+  var tok = p.getProperty('BOT_TOKEN');
+  var res = {};
+  res.bot = JSON.parse(UrlFetchApp.fetch(TG + tok + '/getMe').getContentText()).result.username;
+  res.webhook = JSON.parse(UrlFetchApp.fetch(TG + tok + '/getWebhookInfo').getContentText()).result;
+  res.meta = JSON.parse(UrlFetchApp.fetch(BAZA + 'meta.json').getContentText());
+  res.testy = {};
+  ['УКРГІДРОПРОЕКТ', 'нова пошта', 'київхліб', '00114117', '71.12'].forEach(function (q) {
+    var t0 = new Date().getTime();
+    var r  = rozibratyZapyt_(q);
+    res.testy[q] = r.tip + ' / ' + (r.kilkist === undefined ? '-' : r.kilkist) +
+                   ' / ' + (new Date().getTime() - t0) + ' мс';
+  });
+  Logger.log(JSON.stringify(res, null, 2));
+  return res;
+}
+
+/** Прибрати вебхук (аварійне вимкнення бота). */
+function vymknutyBota() {
+  var tok = PropertiesService.getScriptProperties().getProperty('BOT_TOKEN');
+  return UrlFetchApp.fetch(TG + tok + '/deleteWebhook').getContentText();
+}
+
+
+/**
+ * НБР — пошуковий рушій бота.
+ * Дані: покажчик на GitHub Pages (bot/v1), зібраний скриптом build_index.py.
+ * Жодних таблиць і жодної бази — тільки читання статичних JSON.
+ */
+
+var BAZA    = 'https://ukrnbr.github.io/nbr-rating-data/bot/v1/';
+var STORINKA = 'https://nbr.com.ua/rating?id=';
+var TG      = 'https://api.telegram.org/bot';
+
+var MEDALI = { z: '🥇 золото', s: '🥈 срібло', b: '🥉 бронза' };
+var ZNACHKY = { z: '🥇', s: '🥈', b: '🥉' };
+
+var STOP = ('ТОВАРИСТВО ОБМЕЖЕНОЮ ВІДПОВІДАЛЬНІСТЮ З ПРИВАТНЕ АКЦІОНЕРНЕ ПУБЛІЧНЕ ' +
+  'ПІДПРИЄМСТВО ДЕРЖАВНЕ КОМУНАЛЬНЕ НЕКОМЕРЦІЙНЕ ФЕРМЕРСЬКЕ ГОСПОДАРСТВО СЕЛЯНСЬКЕ ' +
+  'ТОВ ПРАТ ПАТ ТДВ ФОП ДП КП КНП ФГ ПП ЛТД LTD LLC ТА ІМ ІМЕНІ ВІД').split(' ');
+
+// ---------- завантаження з кешем ----------
+
+function tekst_(shlyah, kesh) {
+  var c = CacheService.getScriptCache();
+  if (kesh) {
+    var v = c.get(shlyah);
+    if (v) return v;
+  }
+  var r = UrlFetchApp.fetch(BAZA + shlyah, { muteHttpExceptions: true });
+  if (r.getResponseCode() !== 200) return null;
+  var t = r.getContentText();
+  if (kesh && t.length < 95000) c.put(shlyah, t, 21600); // 6 годин
+  return t;
+}
+
+function json_(shlyah, kesh) {
+  var t = tekst_(shlyah, kesh);
+  return t === null ? null : JSON.parse(t);
+}
+
+function pfx_()  { return json_('pfx.json', true); }
+function nomy_() { return json_('nom.json', true); }
+function kvedy_(){ return json_('kved.json', true); }
+
+// ---------- нормалізація ----------
+
+function norm_(s) {
+  s = String(s || '').toUpperCase();
+  return s.replace(/['’`´ʼ‘]/g, '');
+}
+
+function slova_(q) {
+  var out = [], chastyny = norm_(q).split(/[^0-9A-Za-zА-Яа-яЁёЄєІіЇїҐґ]+/);
+  for (var i = 0; i < chastyny.length; i++) {
+    var t = chastyny[i];
+    if (t.length >= 3 && STOP.indexOf(t) === -1 && out.indexOf(t) === -1) out.push(t);
+  }
+  return out;
+}
+
+/** Ключ одиниці покажчика для слова: найдовший префікс, що є в pfx.json. */
+function odynycya_(slovo, karta) {
+  var max = Math.min(slovo.length, 7);
+  for (var L = max; L >= 3; L--) {
+    var k = slovo.substring(0, L);
+    if (karta.hasOwnProperty(k)) return { nomer: karta[k], klyuch: k };
+  }
+  return null;
+}
+
+/** Пошук одного слова → { ryadky:[], mnozhyna:{edrpou:1} } або null. */
+function poSlovu_(slovo, karta) {
+  var od = odynycya_(slovo, karta);
+  if (!od) return null;
+  var koshyk = json_('b/' + od.nomer + '.json', false);
+  if (!koshyk) return null;
+
+  var ryadky = [];
+  if (koshyk.hasOwnProperty(slovo)) {
+    ryadky = koshyk[slovo].n || [];
+  } else if (slovo.length >= 4) {
+    // пошук за початком слова всередині тієї самої одиниці
+    for (var tok in koshyk) {
+      if (tok.length > slovo.length && tok.substring(0, slovo.length) === slovo &&
+          tok.substring(0, od.klyuch.length) === od.klyuch) {
+        ryadky = ryadky.concat(koshyk[tok].n || []);
+      }
+    }
+  }
+  if (!ryadky.length) return null;
+
+  var m = {};
+  for (var i = 0; i < ryadky.length; i++) m[ryadky[i][0]] = 1;
+  return { ryadky: ryadky, mnozhyna: m };
+}
+
+/** Пошук за назвою. Повертає {tip, kilkist, ryadky, slovo?} */
+function poNazvi_(q) {
+  var slova = slova_(q);
+  if (!slova.length) return { tip: 'korotko' };
+
+  var karta = pfx_(), spilne = null, naymenshi = null, vidsutne = null, chastkovi = [];
+
+  for (var i = 0; i < slova.length; i++) {
+    var r = poSlovu_(slova[i], karta);
+    if (!r) { vidsutne = slova[i]; continue; }
+    chastkovi.push({ slovo: slova[i], r: r });
+    spilne = spilne === null ? r.mnozhyna : peretyn_(spilne, r.mnozhyna);
+    if (naymenshi === null || r.ryadky.length < naymenshi.length) naymenshi = r.ryadky;
+  }
+
+  if (!chastkovi.length) return { tip: 'nemaye', slovo: vidsutne || slova[0] };
+
+  var vidibrani = vybraty_(naymenshi, spilne);
+  if (!vidibrani.length) {
+    // збігу за всіма словами немає — показуємо найвужче окреме слово
+    var naykrashche = chastkovi[0];
+    for (var j = 1; j < chastkovi.length; j++) {
+      if (chastkovi[j].r.ryadky.length < naykrashche.r.ryadky.length) naykrashche = chastkovi[j];
+    }
+    var zap = vybraty_(naykrashche.r.ryadky, null);
+    return { tip: 'chastkovo', slovo: naykrashche.slovo, kilkist: zap.length, ryadky: zap };
+  }
+  return { tip: 'znaydeno', kilkist: vidibrani.length, ryadky: vidibrani,
+           propushcheno: vidsutne };
+}
+
+function peretyn_(a, b) {
+  var o = {};
+  for (var k in a) if (b.hasOwnProperty(k)) o[k] = 1;
+  return o;
+}
+
+/** Дедуп + фільтр за перетином + сортування за місцем. */
+function vybraty_(ryadky, mnozhyna) {
+  if (!ryadky) return [];
+  var bulo = {}, out = [];
+  for (var i = 0; i < ryadky.length; i++) {
+    var r = ryadky[i];
+    if (bulo[r[0]]) continue;
+    if (mnozhyna && !mnozhyna[r[0]]) continue;
+    bulo[r[0]] = 1;
+    out.push(r);
+  }
+  out.sort(function (a, b) {
+    var pa = parseInt(a[3], 10), pb = parseInt(b[3], 10);
+    if (isNaN(pa)) pa = 1e9;
+    if (isNaN(pb)) pb = 1e9;
+    return pa - pb || (a[1] < b[1] ? -1 : 1);
+  });
+  return out;
+}
+
+// ---------- картка за ЄДРПОУ ----------
+
+function poEdrpou_(kod) {
+  var e = String(kod).replace(/\D/g, '');
+  if (!e) return null;
+  while (e.length < 8) e = '0' + e;
+  var d = json_('e/' + (parseInt(e, 10) % 100) + '.json', false);
+  if (!d || !d[e]) return null;
+  var v = d[e];   // [nazva, medal, misce, top, kved, nomIdx]
+  return { edrpou: e, nazva: v[0], medal: v[1], misce: v[2], top: v[3],
+           kved: v[4], nom: (nomy_() || [])[v[5]] || '' };
+}
+
+// ---------- КВЕД ----------
+
+function kvedNazva_(kod) {
+  var sp = kvedy_() || [];
+  for (var i = 0; i < sp.length; i++) if (sp[i][0] === kod) return sp[i];
+  return null;
+}
+
+function kvedZaSlovom_(q) {
+  var sl = slova_(q), sp = kvedy_() || [], out = [];
+  if (!sl.length) return out;
+  for (var i = 0; i < sp.length; i++) {
+    var n = norm_(sp[i][1]), vse = true;
+    for (var j = 0; j < sl.length; j++) if (n.indexOf(sl[j]) === -1) { vse = false; break; }
+    if (vse) out.push(sp[i]);
+  }
+  out.sort(function (a, b) { return b[2] - a[2]; });
+  return out;
+}
+
+function topUKvedi_(kod) {
+  return json_('kv/' + kod.replace(/\./g, '') + '.json', false) || [];
+}
+
+// ---------- розбір запиту (одна точка входу) ----------
+
+function rozibratyZapyt_(q) {
+  var t = String(q || '').trim();
+  if (!t) return { tip: 'korotko' };
+
+  // 1) ЄДРПОУ — від 5 до 8 цифр
+  var lyshe = t.replace(/[\s-]/g, '');
+  if (/^\d{5,8}$/.test(lyshe)) {
+    var k = poEdrpou_(lyshe);
+    return k ? { tip: 'karta', karta: k } : { tip: 'nemaye_edrpou', kod: lyshe };
+  }
+
+  // 2) код КВЕД: 12.34 або 1234 або 12.3
+  var mk = lyshe.match(/^(\d{2})\.?(\d{1,2})$/);
+  if (mk) {
+    var kod = mk[1] + '.' + (mk[2].length === 1 ? '0' + mk[2] : mk[2]);
+    var info = kvedNazva_(kod);
+    if (info) return { tip: 'kved', kod: kod, nazva: info[1], vsogo: info[2],
+                       ryadky: topUKvedi_(kod) };
+    return { tip: 'nemaye_kved', kod: kod };
+  }
+
+  // 3) назва підприємства
+  var r = poNazvi_(t);
+  if (r.tip === 'nemaye' || (r.tip === 'znaydeno' && r.kilkist === 0)) {
+    var kv = kvedZaSlovom_(t);
+    if (kv.length) return { tip: 'kved_spysok', ryadky: kv.slice(0, 10), kilkist: kv.length };
+  }
+  return r;
+}
+
+
+/**
+ * НБР — бот для менеджерів. Вхідна точка вебхука і формування відповідей.
+ */
+
+function doPost(e) {
+  try {
+    var upd = JSON.parse(e.postData.contents);
+    if (upd.message)        obrobytyPovidomlennya_(upd.message);
+    else if (upd.callback_query) obrobytyKnopku_(upd.callback_query);
+  } catch (err) {
+    zapysatyPomylku_(err);
+  }
+  return ContentService.createTextOutput('ok');
+}
+
+function doGet() {
+  return ContentService.createTextOutput('НБР — бот пошуку по рейтингу. Працює.');
+}
+
+// ---------- доступ ----------
+
+function dozvoleno_(id) {
+  var sp = (PropertiesService.getScriptProperties().getProperty('MANAGERS') || '').trim();
+  if (!sp) return true;                       // порожньо = доступ усім
+  return sp.split(/[\s,;]+/).indexOf(String(id)) !== -1;
+}
+
+// ---------- повідомлення ----------
+
+function obrobytyPovidomlennya_(msg) {
+  var chat = msg.chat.id;
+  var text = (msg.text || '').trim();
+  if (!text) return;
+
+  if (!dozvoleno_(msg.from.id)) {
+    nadislaty_(chat, 'Цей бот — для менеджерів НБР.\nВаш Telegram id: <code>' +
+      msg.from.id + '</code>\nПопросіть додати його в доступи.');
+    return;
+  }
+
+  if (text.indexOf('/start') === 0) {
+    var payload = text.substring(6).trim();
+    if (/^\d{5,8}$/.test(payload)) { vidpovisty_(chat, payload, msg); return; }
+    nadislaty_(chat, PRYVITANNYA);
+    return;
+  }
+  if (text.indexOf('/dopomoga') === 0 || text.indexOf('/help') === 0) {
+    nadislaty_(chat, PRYVITANNYA); return;
+  }
+  if (text.indexOf('/kved') === 0) {
+    var q = text.substring(5).trim();
+    if (!q) { nadislaty_(chat, 'Напишіть слово з назви галузі, напр.: <code>/kved хліб</code>'); return; }
+    var sp = kvedZaSlovom_(q);
+    nadislaty_(chat, sp.length ? spysokKved_(sp.slice(0, 15), sp.length)
+                               : 'За словом «' + esc_(q) + '» галузі не знайшов.');
+    zhurnal_(msg, text, sp.length, 'КВЕД');
+    return;
+  }
+  vidpovisty_(chat, text, msg);
+}
+
+function vidpovisty_(chat, zapyt, msg) {
+  var r;
+  try {
+    r = rozibratyZapyt_(zapyt);
+  } catch (err) {
+    zapysatyPomylku_(err);
+    nadislaty_(chat, '⚠️ Не вдалося виконати пошук. Спробуйте ще раз за хвилину.');
+    return;
+  }
+
+  if (r.tip === 'karta') {
+    nadislaty_(chat, kartka_(r.karta), knopkyKartky_(r.karta));
+    zhurnal_(msg, zapyt, 1, r.karta.edrpou);
+    return;
+  }
+  if (r.tip === 'nemaye_edrpou') {
+    nadislaty_(chat, '❌ ЄДРПОУ <code>' + esc_(r.kod) + '</code> у рейтингу «Лідер галузі 2025» немає.\n\n' +
+      'Перевірте код або пошукайте за назвою.');
+    zhurnal_(msg, zapyt, 0, 'нема ЄДРПОУ');
+    return;
+  }
+  if (r.tip === 'kved') {
+    nadislaty_(chat, spysokKompaniy_('🏭 КВЕД ' + r.kod + ' — ' + esc_(r.nazva) +
+      '\nУсього в рейтингу: <b>' + r.vsogo + '</b>. Показую перших ' +
+      Math.min(10, r.ryadky.length) + ':', r.ryadky.slice(0, 10)),
+      r.ryadky.length > 10 ? knopkaShche_('k|' + r.kod + '|10') : null);
+    zhurnal_(msg, zapyt, r.vsogo, 'КВЕД ' + r.kod);
+    return;
+  }
+  if (r.tip === 'nemaye_kved') {
+    nadislaty_(chat, '❌ Такого коду КВЕД у рейтингу немає: <code>' + esc_(r.kod) + '</code>');
+    return;
+  }
+  if (r.tip === 'kved_spysok') {
+    nadislaty_(chat, spysokKved_(r.ryadky, r.kilkist));
+    zhurnal_(msg, zapyt, r.kilkist, 'КВЕД-список');
+    return;
+  }
+  if (r.tip === 'korotko') {
+    nadislaty_(chat, 'Напишіть щонайменше 3 літери назви, або ЄДРПОУ, або код КВЕД.');
+    return;
+  }
+  if (r.tip === 'nemaye') {
+    nadislaty_(chat, '❌ За словом «' + esc_(r.slovo) + '» у рейтингу нічого немає.\n\n' +
+      'Спробуйте іншу частину назви або пошукайте за ЄДРПОУ.');
+    zhurnal_(msg, zapyt, 0, '—');
+    return;
+  }
+  if (r.tip === 'chastkovo') {
+    nadislaty_(chat, spysokKompaniy_('⚠️ Компанії, де є ВСІ ці слова, немає.\n' +
+      'Ось найближче за словом «' + esc_(r.slovo) + '» (' + r.kilkist + '):',
+      r.ryadky.slice(0, 10)),
+      r.ryadky.length > 10 ? knopkaShche_('n|' + r.slovo + '|10') : null);
+    zhurnal_(msg, zapyt, r.kilkist, 'частково');
+    return;
+  }
+
+  // знайдено
+  if (r.kilkist === 1) {
+    var k = poEdrpou_(r.ryadky[0][0]);
+    nadislaty_(chat, kartka_(k), knopkyKartky_(k));
+    zhurnal_(msg, zapyt, 1, k.edrpou);
+    return;
+  }
+  var shapka = '🔎 Знайдено <b>' + r.kilkist + '</b>' +
+    (r.kilkist > 10 ? '. Показую перших 10 — уточніть запит, якщо треба інша:' : ':');
+  if (r.propushcheno) shapka += '\n<i>слово «' + esc_(r.propushcheno) + '» у назвах не трапляється — шукав без нього</i>';
+  nadislaty_(chat, spysokKompaniy_(shapka, r.ryadky.slice(0, 10)),
+    r.kilkist > 10 ? knopkaShche_('n|' + slova_(zapyt).join(' ') + '|10') : null);
+  zhurnal_(msg, zapyt, r.kilkist, 'список');
+}
+
+// ---------- кнопки ----------
+
+function obrobytyKnopku_(cb) {
+  var chat = cb.message.chat.id;
+  var d = String(cb.data || '').split('|');
+  vidpovistyNaKnopku_(cb.id);
+  try {
+    if (d[0] === 'k') {
+      var vid = parseInt(d[2], 10);
+      var ryadky = topUKvedi_(d[1]);
+      nadislaty_(chat, spysokKompaniy_('🏭 КВЕД ' + d[1] + ' — далі:', ryadky.slice(vid, vid + 10)),
+        ryadky.length > vid + 10 ? knopkaShche_('k|' + d[1] + '|' + (vid + 10)) : null);
+    } else if (d[0] === 'n') {
+      var vid2 = parseInt(d[2], 10);
+      var r = poNazvi_(d[1]);
+      var rr = r.ryadky || [];
+      nadislaty_(chat, spysokKompaniy_('🔎 Далі:', rr.slice(vid2, vid2 + 10)),
+        rr.length > vid2 + 10 ? knopkaShche_('n|' + d[1] + '|' + (vid2 + 10)) : null);
+    } else if (d[0] === 'e') {
+      var k = poEdrpou_(d[1]);
+      if (k) nadislaty_(chat, kartka_(k), knopkyKartky_(k));
+    }
+  } catch (err) { zapysatyPomylku_(err); }
+}
+
+function knopkaShche_(data) {
+  return { inline_keyboard: [[{ text: '▼ Показати ще 10', callback_data: data.substring(0, 60) }]] };
+}
+
+function knopkyKartky_(k) {
+  var ryad = [[{ text: '🔗 Сторінка рейтингу', url: STORINKA + k.edrpou }]];
+  if (k.kved) ryad.push([{ text: '🏭 Лідери цього КВЕД (' + k.kved + ')',
+                           callback_data: 'k|' + k.kved + '|0' }]);
+  return { inline_keyboard: ryad };
+}
+
+// ---------- тексти ----------
+
+var PRYVITANNYA =
+  '<b>НБР — пошук по рейтингу «Лідер галузі 2025»</b>\n\n' +
+  'Просто надішліть у чат одне з:\n' +
+  '• <b>ЄДРПОУ</b> — напр. <code>00114117</code>\n' +
+  '• <b>назву підприємства</b> або її частину — напр. <code>київхліб</code>, <code>нова пошта</code>\n' +
+  '• <b>код КВЕД</b> — напр. <code>71.12</code> → перші компанії галузі\n' +
+  '• <code>/kved хліб</code> — знайти галузь за словом у назві\n\n' +
+  'У відповідь бот дає нагороду, місце й <b>готове посилання</b>, яке можна одразу переслати клієнту.\n\n' +
+  '<i>Порада: два слова звужують пошук краще за одне.</i>';
+
+function kartka_(k) {
+  var t = ZNACHKY[k.medal] + ' <b>' + esc_(k.nazva) + '</b>\n' +
+          'ЄДРПОУ: <code>' + k.edrpou + '</code>\n' +
+          'Нагорода: ' + (MEDALI[k.medal] || '—') +
+          ' · місце <b>' + esc_(k.misce) + '</b>' + (k.top ? ' (ТОП-' + esc_(k.top) + ')' : '') + '\n';
+  if (k.nom)  t += 'Номінація: ' + esc_(k.nom) + '\n';
+  if (k.kved) {
+    var kv = kvedNazva_(k.kved);
+    t += 'КВЕД: ' + k.kved + (kv ? ' — ' + esc_(kv[1]) : '') + '\n';
+  }
+  t += '\n🔗 ' + STORINKA + k.edrpou;
+  return t;
+}
+
+function spysokKompaniy_(shapka, ryadky) {
+  var t = shapka + '\n';
+  for (var i = 0; i < ryadky.length; i++) {
+    var r = ryadky[i];   // [edrpou, nazva, medal, misce, top]
+    t += '\n' + ZNACHKY[r[2]] + ' <b>' + esc_(r[1]) + '</b>\n' +
+         '   ' + r[0] + ' · місце ' + esc_(r[3]) + (r[4] ? ' (ТОП-' + esc_(r[4]) + ')' : '') +
+         '\n   🔗 ' + STORINKA + r[0] + '\n';
+  }
+  return t;
+}
+
+function spysokKved_(ryadky, vsogo) {
+  var t = '🏭 Знайдено галузей: <b>' + vsogo + '</b>' +
+          (vsogo > ryadky.length ? ' (показую ' + ryadky.length + ')' : '') + '\n';
+  for (var i = 0; i < ryadky.length; i++) {
+    t += '\n<code>' + ryadky[i][0] + '</code> — ' + esc_(ryadky[i][1]) +
+         ' <i>(' + ryadky[i][2] + ')</i>';
+  }
+  t += '\n\nНадішліть код КВЕД, щоб побачити лідерів галузі.';
+  return t;
+}
+
+function esc_(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ---------- телеграм ----------
+
+function nadislaty_(chat, text, klaviatura) {
+  if (text.length > 4000) text = text.substring(0, 3990) + '\n…';
+  var payload = { chat_id: chat, text: text, parse_mode: 'HTML',
+                  disable_web_page_preview: true };
+  if (klaviatura) payload.reply_markup = klaviatura;
+  var tok = PropertiesService.getScriptProperties().getProperty('BOT_TOKEN');
+  return UrlFetchApp.fetch(TG + tok + '/sendMessage', {
+    method: 'post', contentType: 'application/json',
+    payload: JSON.stringify(payload), muteHttpExceptions: true
+  }).getContentText();
+}
+
+function vidpovistyNaKnopku_(id) {
+  var tok = PropertiesService.getScriptProperties().getProperty('BOT_TOKEN');
+  UrlFetchApp.fetch(TG + tok + '/answerCallbackQuery?callback_query_id=' + id,
+                    { muteHttpExceptions: true });
+}
+
+// ---------- журнал і помилки ----------
+
+function zhurnal_(msg, zapyt, kilkist, shcho) {
+  try {
+    var id = PropertiesService.getScriptProperties().getProperty('LOG_ID');
+    if (!id) return;
+    var sh = SpreadsheetApp.openById(id).getSheetByName('Запити');
+    var hto = ((msg.from.first_name || '') + ' ' + (msg.from.last_name || '')).trim() ||
+              ('@' + (msg.from.username || '?'));
+    sh.appendRow([new Date(), hto, msg.from.id, zapyt, kilkist, shcho]);
+  } catch (e) { /* журнал не має ламати відповідь */ }
+}
+
+function zapysatyPomylku_(err) {
+  try {
+    var id = PropertiesService.getScriptProperties().getProperty('LOG_ID');
+    if (!id) return;
+    var ss = SpreadsheetApp.openById(id);
+    var sh = ss.getSheetByName('Помилки') || ss.insertSheet('Помилки');
+    sh.appendRow([new Date(), String(err && err.stack || err)]);
+  } catch (e) {}
+}
