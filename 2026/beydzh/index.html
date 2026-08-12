@@ -116,7 +116,7 @@ function yearPaths(year){
 
 /* ── збірка бейджа ─────────────────────────────────────────── */
 function buildSVG(o){
-  const name = (o.name||"").toUpperCase();
+  const name = (o.name||"");
   const fit = fitText(name, 740, 3, 58, 24);
   const n = fit.lines.length, lh = fit.size*1.28;
   const parts = [];
