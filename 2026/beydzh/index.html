@@ -563,7 +563,7 @@ async function show(kod, hiKod) {
   var today = new Date();
   el('date').textContent = today.toLocaleDateString('uk-UA');
   el('reqid').textContent = 'NBR-' + CONFIG.YEAR + '-' + currentKod;
-  if (CONFIG.STAT_URL) { var im = new Image(); im.src = CONFIG.STAT_URL + '?e=' + currentKod + '&r=' + encodeURIComponent(document.referrer) + '&n=' + encodeURIComponent(hiKod || '') + '&ua=' + encodeURIComponent((navigator.userAgent || '').slice(0, 120)) + '&t=' + Date.now(); }
+  if (CONFIG.STAT_URL) { try { fetch(CONFIG.STAT_URL + '?e=' + currentKod + '&r=' + encodeURIComponent(document.referrer) + '&n=' + encodeURIComponent(hiKod || '') + '&ua=' + encodeURIComponent((navigator.userAgent || '').slice(0, 120)) + '&t=' + Date.now(), { mode: 'no-cors' }); } catch (e) {} }   // fetch, не <img>: піксель через 302 не доходив
   return true;
 }
 
@@ -615,19 +615,22 @@ el('fSend').onclick = async function () {
   var email = el('fEmail').value.trim(), tel = el('fTel').value.trim(), fm = el('fMsg');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { fm.textContent = 'Введіть, будь ласка, коректний e-mail.'; return; }
   var dani = { edrpou: currentKod, nazva: el('nazva').textContent, email: email, tel: tel, maket: el('fMaket').checked ? 1 : 0, storinka: location.href,
-    url: pageUrl(currentKod), nagorody: currentBest, png: ZNAKY_PNG };
+    url: pageUrl(currentKod), nagorody: currentBest, png: {} };
   if (!ZNAKY_PNG.beydzh || !ZNAKY_PNG.synya || !ZNAKY_PNG.zolota) { fm.textContent = 'Знаки ще формуються — зачекайте кілька секунд і натисніть ще раз.'; return; }
   if (!CONFIG.FORM_URL) {
     location.href = 'mailto:' + CONFIG.KONTAKT_EMAIL + '?subject=' + encodeURIComponent('Знак «Лідер галузі 2026» — ' + dani.nazva + ' (ЄДРПОУ ' + currentKod + ')') +
       '&body=' + encodeURIComponent('Прошу надіслати цифровий знак та інструкцію' + (dani.maket ? ' і макет настінної нагороди' : '') + '.\nE-mail: ' + email + (tel ? '\nТелефон: ' + tel : ''));
     return;
   }
-  fm.textContent = 'Надсилаю…';
+  fm.textContent = 'Надсилаю… зазвичай до хвилини, не закривайте сторінку.';
+  el('fSend').disabled = true;
   try {
+    // знаки для листа — у 1× (700/640 px): у 4 рази менше даних, ніж 2× для завантаження (повільний інтернет — до 1 хв)
+    for (var kz in ZN) dani.png[kz] = await zmenshytyPng(ZNAKY_PNG[kz], ZN[kz].w);
     await fetch(CONFIG.FORM_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(dani) });
     fm.textContent = 'Дякуємо! Лист надійде на ' + email + ' протягом кількох хвилин.';
     el('fSend').disabled = true;
-  } catch (e) { fm.textContent = 'Не вдалося надіслати. Напишіть нам на ' + CONFIG.KONTAKT_EMAIL; }
+  } catch (e) { el('fSend').disabled = false; fm.textContent = 'Не вдалося надіслати. Напишіть нам на ' + CONFIG.KONTAKT_EMAIL; }
 };
 
 /* ── старт ─────────────────────────────────────────────────── */
