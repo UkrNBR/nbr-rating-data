@@ -18,9 +18,9 @@ const CONFIG = {
   // Адреса ЦІЄЇ сторінки для посилань у віджеті та «Поділитись» (без ?edrpou=)
   PAGE_URL:  "https://ukrnbr.github.io/nbr-rating-data/2026/beydzh/",
   // Куди йдуть заявки з форми (веб-застосунок Apps Script). Порожньо = форма показує лист на e-mail.
-  FORM_URL:  "",
+  FORM_URL:  "https://script.google.com/macros/s/AKfycbzuO6EVn4I5TS-5f6reNOmEX5TmrDRrk1noIFGA0FgUOHN2mCE0agsJzy9W19D-Zow/exec",
   // Лічильник відкриттів (1×1 піксель). Порожньо = вимкнено.
-  STAT_URL:  "",
+  STAT_URL:  "https://script.google.com/macros/s/AKfycbzuO6EVn4I5TS-5f6reNOmEX5TmrDRrk1noIFGA0FgUOHN2mCE0agsJzy9W19D-Zow/exec",
   KONTAKT_EMAIL: "gg@unbr.com.ua",
   YEAR: "2026",
   SHOW_EDRPOU: true,
@@ -149,9 +149,8 @@ ol.steps li{margin:4px 0}
 
     <h3>Як розмістити знак</h3>
     <b style="font-size:14px">1. На сайті — код віджета</b>
-    <p class="hint" style="margin-top:2px">Скопіюйте код і вставте у підвал (футер) сайту або в розділ «Про компанію». Знак підтягне цю сторінку за посиланням. У коді — прямокутний бейдж; щоб поставити медаль, замініть картинку на завантажений PNG.</p>
-    <pre class="code" id="widget">…</pre>
-    <div class="row"><button class="ghost" id="copyWidget">Скопіювати код</button></div>
+    <p class="hint" style="margin-top:2px">Короткий код віджета (3 рядки: картинка знака + посилання на цю сторінку) надсилаємо на e-mail разом із файлами знаків та інструкцією. Вставте його у підвал (футер) сайту або в розділ «Про компанію».</p>
+    <div class="row"><button class="ghost" id="copyWidget">Отримати код і файли на e-mail</button></div>
 
     <b style="font-size:14px;display:block;margin-top:14px">2. На сайті — без коду</b>
     <ol class="steps">
@@ -498,6 +497,7 @@ async function poNazvi(zapyt) {
 
 /* ── показ ─────────────────────────────────────────────────── */
 var currentName = '', currentKod = '';
+var currentBest = [];
 function el(id) { return document.getElementById(id); }
 function pageUrl(kod) { return CONFIG.PAGE_URL + '?edrpou=' + kod; }
 function medalClass(m) { return m === 'З' ? 'z' : m === 'С' ? 's' : 'b'; }
@@ -519,12 +519,13 @@ async function show(kod, hiKod) {
   document.title = k.n + ' — Лідер галузі ' + CONFIG.YEAR + ' | НБР';
 
   var n = nagorody(k);
-  var sloty = dvaKrashchi(n), uSlotah = {};
+  var sloty = dvaKrashchi(n), uSlotah = {}; currentBest = [];
   var best = el('best'); best.innerHTML = '';
   sloty.forEach(function (x) {
     uSlotah[x.klyuch] = true;
     var de = x.riven === 'н' ? 'національний масштаб' : oblastU_(k.o);
     var mt = tekstMiscya(x);
+    currentBest.push({ medal: x.medalNazva, tekst: x.nazva, de: de, misce: mt || '' });
     var d = document.createElement('div'); d.className = 'card' + (hiKod && x.klyuch === hiKod ? ' hi' : '');
     d.innerHTML = '<div>' + x.znachok + ' <span class="medal ' + medalClass(x.medal) + '">' + x.medalNazva + '</span></div>' +
       '<div class="nm">' + esc(x.nazva) + '</div>' +
@@ -548,15 +549,8 @@ async function show(kod, hiKod) {
   var nazvaZn = kn ? kn.name : k.n, kvedZn = kn ? kn.kved : String(k.k || '').split(' ')[0];
   var mb = nazvaZn.match(/«([^»]+)»/), brendZn = mb ? '«' + mb[1] + '»' : null;
   currentName = nazvaZn.replace(/[^\wА-Яа-яЇїІіЄєҐґ ]/g, '').trim().slice(0, 50) || 'znak';
-  el('widget').textContent = 'Формую код…';
-  pokazatyZnaky(nazvaZn, brendZn, String(k.e), kvedZn).then(function () {
-    var url = pageUrl(currentKod);
-    zmenshytyPng(ZNAKY_PNG.beydzh, 400).then(function (du) {
-      el('widget').textContent = '<!-- Знак «Лідер галузі 2026» — Національний бізнес-рейтинг -->\n' +
-        '<a href="' + url + '" target="_blank" rel="noopener" title="Лідер галузі 2026 — підтвердження у реєстрі НБР">' +
-        '<img src="' + du + '" alt="Знак «Лідер галузі 2026» — ' + esc(nazvaZn) + '" width="150" style="width:150px;height:auto"></a>';
-    });
-  });
+  ZNAKY_PNG = {};
+  pokazatyZnaky(nazvaZn, brendZn, String(k.e), kvedZn);
 
   // посилання, поділитись
   var url = pageUrl(currentKod);
@@ -569,7 +563,7 @@ async function show(kod, hiKod) {
   var today = new Date();
   el('date').textContent = today.toLocaleDateString('uk-UA');
   el('reqid').textContent = 'NBR-' + CONFIG.YEAR + '-' + currentKod;
-  if (CONFIG.STAT_URL) { var im = new Image(); im.src = CONFIG.STAT_URL + '?e=' + currentKod + '&r=' + encodeURIComponent(document.referrer) + '&t=' + Date.now(); }
+  if (CONFIG.STAT_URL) { var im = new Image(); im.src = CONFIG.STAT_URL + '?e=' + currentKod + '&r=' + encodeURIComponent(document.referrer) + '&n=' + encodeURIComponent(hiKod || '') + '&ua=' + encodeURIComponent((navigator.userAgent || '').slice(0, 120)) + '&t=' + Date.now(); }
   return true;
 }
 
@@ -612,7 +606,7 @@ document.querySelectorAll('.znaky img').forEach(function (im) { im.onclick = fun
 function kopiya(txt, btn) {
   navigator.clipboard.writeText(txt).then(function () { var o = btn.textContent; btn.textContent = 'Скопійовано ✓'; setTimeout(function () { btn.textContent = o; }, 1800); });
 }
-el('copyWidget').onclick = function () { kopiya(el('widget').textContent, this); };
+el('copyWidget').onclick = function () { el('formPanel').scrollIntoView({ behavior: 'smooth' }); el('fEmail').focus(); };
 el('shCopy').onclick = function () { kopiya(pageUrl(currentKod), this); };
 el('btnMaket').onclick = function () { el('fMaket').checked = true; el('formPanel').scrollIntoView({ behavior: 'smooth' }); el('fEmail').focus(); };
 
@@ -620,7 +614,9 @@ el('btnMaket').onclick = function () { el('fMaket').checked = true; el('formPane
 el('fSend').onclick = async function () {
   var email = el('fEmail').value.trim(), tel = el('fTel').value.trim(), fm = el('fMsg');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { fm.textContent = 'Введіть, будь ласка, коректний e-mail.'; return; }
-  var dani = { edrpou: currentKod, nazva: el('nazva').textContent, email: email, tel: tel, maket: el('fMaket').checked ? 1 : 0, storinka: location.href };
+  var dani = { edrpou: currentKod, nazva: el('nazva').textContent, email: email, tel: tel, maket: el('fMaket').checked ? 1 : 0, storinka: location.href,
+    url: pageUrl(currentKod), nagorody: currentBest, png: ZNAKY_PNG };
+  if (!ZNAKY_PNG.beydzh || !ZNAKY_PNG.synya || !ZNAKY_PNG.zolota) { fm.textContent = 'Знаки ще формуються — зачекайте кілька секунд і натисніть ще раз.'; return; }
   if (!CONFIG.FORM_URL) {
     location.href = 'mailto:' + CONFIG.KONTAKT_EMAIL + '?subject=' + encodeURIComponent('Знак «Лідер галузі 2026» — ' + dani.nazva + ' (ЄДРПОУ ' + currentKod + ')') +
       '&body=' + encodeURIComponent('Прошу надіслати цифровий знак та інструкцію' + (dani.maket ? ' і макет настінної нагороди' : '') + '.\nE-mail: ' + email + (tel ? '\nТелефон: ' + tel : ''));
