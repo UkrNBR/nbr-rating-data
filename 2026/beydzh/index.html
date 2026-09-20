@@ -16,7 +16,7 @@ const CONFIG = {
   // Полегшені файли для знака (коротка назва + КВЕД, як у листі) — beydzh/{0..99}.json
   BEYDZH_URL:"https://ukrnbr.github.io/nbr-rating-data/2026/beydzh/",
   // Адреса ЦІЄЇ сторінки для посилань у віджеті та «Поділитись» (без ?edrpou=)
-  PAGE_URL:  "https://ukrnbr.github.io/nbr-rating-data/2026/beydzh/",
+  PAGE_URL:  "https://www.nbr.com.ua/rating",
   // Куди йдуть заявки з форми (веб-застосунок Apps Script). Порожньо = форма показує лист на e-mail.
   FORM_URL:  "https://script.google.com/macros/s/AKfycbzuO6EVn4I5TS-5f6reNOmEX5TmrDRrk1noIFGA0FgUOHN2mCE0agsJzy9W19D-Zow/exec",
   // Лічильник відкриттів (1×1 піксель). Порожньо = вимкнено.
@@ -604,7 +604,19 @@ document.querySelectorAll('[data-zn]').forEach(function (b) {
 });
 document.querySelectorAll('.znaky img').forEach(function (im) { im.onclick = function () { var k = im.id.replace('zn-', ''); el('znaky').querySelector('[data-zn="' + k + '"]').click(); }; });
 function kopiya(txt, btn) {
-  navigator.clipboard.writeText(txt).then(function () { var o = btn.textContent; btn.textContent = 'Скопійовано ✓'; setTimeout(function () { btn.textContent = o; }, 1800); });
+  function pokaz(t){ var o = btn.textContent; btn.textContent = t; setTimeout(function () { btn.textContent = o; }, 1800); }
+  function zapasnyy(){
+    try{
+      var ta = document.createElement('textarea');
+      ta.value = txt; ta.setAttribute('readonly','');
+      ta.style.position = 'fixed'; ta.style.top = '-1000px';
+      document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, txt.length);
+      var ok = document.execCommand('copy'); document.body.removeChild(ta);
+      pokaz(ok ? 'Скопійовано \u2713' : 'Скопіюйте вручну');
+    }catch(e){ pokaz('Скопіюйте вручну'); }
+  }
+  if (!navigator.clipboard || !navigator.clipboard.writeText) { zapasnyy(); return; }
+  navigator.clipboard.writeText(txt).then(function () { pokaz('Скопійовано \u2713'); }).catch(zapasnyy);
 }
 el('copyWidget').onclick = function () { el('formPanel').scrollIntoView({ behavior: 'smooth' }); el('fEmail').focus(); };
 el('shCopy').onclick = function () { kopiya(pageUrl(currentKod), this); };
@@ -652,7 +664,12 @@ el('q1').addEventListener('keydown', function (e) { if (e.key === 'Enter') el('g
   var last = 0;
   function send(){
     try{
-      var h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+      var h = 0, kids = document.body.children;
+      for (var i = 0; i < kids.length; i++){
+        var rr = kids[i].getBoundingClientRect();
+        if (rr.height > 0) h = Math.max(h, rr.bottom + window.scrollY);
+      }
+      h = Math.ceil(h) || document.documentElement.scrollHeight;
       if (Math.abs(h - last) > 4){ last = h; window.parent.postMessage({nbrHeight: h}, '*'); }
     }catch(e){}
   }
