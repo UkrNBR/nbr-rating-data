@@ -21,6 +21,9 @@ const CONFIG = {
   FORM_URL:  "https://script.google.com/macros/s/AKfycbzuO6EVn4I5TS-5f6reNOmEX5TmrDRrk1noIFGA0FgUOHN2mCE0agsJzy9W19D-Zow/exec",
   // Лічильник відкриттів (1×1 піксель). Порожньо = вимкнено.
   STAT_URL:  "https://script.google.com/macros/s/AKfycbzuO6EVn4I5TS-5f6reNOmEX5TmrDRrk1noIFGA0FgUOHN2mCE0agsJzy9W19D-Zow/exec",
+  // 02.10.2026: зразок макета нагороди з позначкою «ЗРАЗОК» і приймач заявок — служба zrazok на сервері НБР (публічно, без ключа)
+  ZRAZOK_URL:  "https://tenders.unbr.com.ua/zrazok",
+  ZAYAVKA_URL: "https://tenders.unbr.com.ua/zayavka",
   KONTAKT_EMAIL: "gg@unbr.com.ua",
   YEAR: "2026",
   SHOW_EDRPOU: true,
@@ -181,14 +184,36 @@ ol.steps li{margin:4px 0}
       <input type="email" id="fEmail" placeholder="Ваш e-mail" autocomplete="email">
       <input type="tel" id="fTel" placeholder="Телефон (за бажанням)" autocomplete="tel">
     </div>
-    <label class="chk"><input type="checkbox" id="fMaket"> <span>Також надіслати безкоштовний електронний макет настінної нагороди «Лідер галузі 2026» з назвою нашого підприємства</span></label>
     <div class="row" style="margin-top:8px"><button id="fSend">Надіслати</button><span class="hint" id="fMsg"></span></div>
   </div>
 
   <!-- 5. НАГОРОДИ — КОПІЯ стор. 2 затвердженого прайса PRAYS-2026-V6 (= стор. 3 вкладення холодного листа), без шапки з логотипом -->
   <div class="panel" style="padding:0;overflow:hidden">
     <img src="img/prays-storinka-2-nagorody.png" alt="Нагороди 2026: настінна нагорода «Лідер галузі 2026», іменні нагороди «Лідер року» і «Спеціаліст року», ордени та медалі" style="display:block;width:100%;height:auto">
-    <div style="padding:16px 22px 22px"><button class="gold" id="btnMaket">Отримати безкоштовний макет нагороди з назвою підприємства</button></div>
+    <div style="padding:16px 22px 22px">
+      <button class="gold" id="btnZamovyty">Замовити нагороду</button>
+      <!-- 02.10.2026 (вказівка Валерія 11:31/11:40): заявка менеджеру зі «ЗРАЗКОМ», номінацію клієнт обирає кнопками -->
+      <div id="zayavka" class="hidden" style="margin-top:18px">
+        <h3 style="margin:0 0 6px">Заявка на нагороду</h3>
+        <p class="sub" style="margin:0 0 8px">За якою номінацією виготовити нагороду? Оберіть одну — нижче з’явиться зразок макета саме з нею.</p>
+        <div class="row" id="zNom"></div>
+        <div class="row" style="margin-top:12px;align-items:flex-start">
+          <img id="zImg" alt="Зразок макета нагороди" style="width:300px;max-width:100%;border:1px solid #dfe3ea;border-radius:8px">
+          <div style="flex:1;min-width:260px">
+            <p class="hint" style="margin:0 0 10px">Це зразок із позначкою «ЗРАЗОК» — готовий макет без позначки підготує менеджер після узгодження замовлення.</p>
+            <div class="row"><input type="text" id="zPib" placeholder="Ваше ім’я та посада" style="flex:1"></div>
+            <div class="row" style="margin-top:8px"><input type="tel" id="zTel" placeholder="Телефон" style="flex:1"></div>
+            <div class="row" style="margin-top:8px"><select id="zShcho" style="flex:1;padding:10px;border:1px solid #dfe3ea;border-radius:8px;font:inherit">
+              <option>Настінна нагорода «Лідер галузі 2026» (А3)</option>
+              <option>Нагорода А3 + іменна нагорода керівнику</option>
+              <option>Інше — зателефонуйте мені</option>
+            </select></div>
+            <div class="row" style="margin-top:10px"><button id="zSend">Надіслати заявку</button><span class="hint" id="zMsg"></span></div>
+            <p class="hint" style="margin:8px 0 0">Менеджер зв’яжеться з Вами в робочий час: ціна, рахунок, узгодження макета.</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 6. ІНШЕ ПІДПРИЄМСТВО -->
@@ -215,16 +240,20 @@ ol.steps li{margin:4px 0}
 
 <script>
 /* ═══════════ ЯДРО НАГОРОД — 1-в-1 з 06-kod/bot-yadro-2026.gs (той самий текст, що показує офісний бот) ═══════════ */
-var NAGORODY = {
+var NAGORODY = {   // 02.10.2026, вказівка Валерія 11:31: будь-яке призове місце = «Лідер галузі 2026» (як у боті менеджерів Версія 36+)
   'ЛГ': 'Лідер галузі 2026',
-  'УД': 'Переможець у номінації «Успішність діяльності»',
-  'РР': 'Переможець у номінації «Результативність роботи»',
-  'ДА': 'Переможець у номінації «Ділова активність»',
-  'Пл': 'Переможець у номінації «Платоспроможність»',
-  'ДЗ': 'Лідер галузі 2026: Динаміка зростання',
-  'ФС': 'Лідер галузі 2026: Фінансова стійкість',
-  'ВБ': 'Лідер галузі 2026: Внесок у бюджет'
+  'УД': 'Лідер галузі 2026',
+  'РР': 'Лідер галузі 2026',
+  'ДА': 'Лідер галузі 2026',
+  'Пл': 'Лідер галузі 2026',
+  'ДЗ': 'Лідер галузі 2026',
+  'ФС': 'Лідер галузі 2026',
+  'ВБ': 'Лідер галузі 2026'
 };
+/* критерій (номінація), за яким присуджено нагороду — 1-в-1 KRYTERIY_NOM бота менеджерів */
+var KRYTERIY_NOM = { 'ЛГ': 'Лідер галузі', 'УД': 'Успішність діяльності', 'РР': 'Результативність роботи',
+                     'ДА': 'Ділова активність', 'Пл': 'Платоспроможність', 'ДЗ': 'Динаміка зростання',
+                     'ФС': 'Фінансова стійкість', 'ВБ': 'Внесок у бюджет' };
 var PORYADOK = ['ЛГ', 'ДЗ', 'ФС', 'ВБ', 'УД', 'РР', 'ДА', 'Пл'];
 var MEDALI = { 'З': 'золото', 'С': 'срібло', 'Б': 'бронза' };
 var ZNACHKY = { 'З': '🥇', 'С': '🥈', 'Б': '🥉' };
@@ -285,7 +314,7 @@ function nagorody(k) {
     if (!msc && kod === 'ЛГ') msc = riven === 'н' ? (k.mn || null) : (k.mr || null);
     res.push({
       kod: kod, riven: riven, medal: med,
-      nazva: NAGORODY[kod], rivenNazva: RIVNI[riven],
+      nazva: NAGORODY[kod], kryteriy: KRYTERIY_NOM[kod] || kod, rivenNazva: RIVNI[riven],
       medalNazva: MEDALI[med] || med, znachok: ZNACHKY[med] || '•',
       klyuch: kl, misce: msc
     });
@@ -496,7 +525,7 @@ async function poNazvi(zapyt) {
 }
 
 /* ── показ ─────────────────────────────────────────────────── */
-var currentName = '', currentKod = '';
+var currentName = '', currentKod = '', kartkaPotochna = null;
 var currentBest = [];
 function el(id) { return document.getElementById(id); }
 function pageUrl(kod) { return CONFIG.PAGE_URL + '?edrpou=' + kod; }
@@ -518,6 +547,9 @@ async function show(kod, hiKod) {
   el('oblast').textContent = k.o || '—'; el('kved').textContent = k.k || '—'; el('rozmir').textContent = k.rz || '—';
   document.title = k.n + ' — Лідер галузі ' + CONFIG.YEAR + ' | НБР';
 
+  kartkaPotochna = k;
+  // 02.10: блок заявки — скинути від попереднього підприємства
+  el('zayavka').classList.add('hidden'); zNomObr = null; el('zNom').innerHTML = ''; el('zImg').removeAttribute('src'); el('zMsg').textContent = ''; el('zSend').disabled = false;
   var n = nagorody(k);
   var sloty = dvaKrashchi(n), uSlotah = {}; currentBest = [];
   var best = el('best'); best.innerHTML = '';
@@ -525,11 +557,11 @@ async function show(kod, hiKod) {
     uSlotah[x.klyuch] = true;
     var de = x.riven === 'н' ? 'національний масштаб' : oblastU_(k.o);
     var mt = tekstMiscya(x);
-    currentBest.push({ medal: x.medalNazva, tekst: x.nazva, de: de, misce: mt || '' });
+    currentBest.push({ medal: x.medalNazva, tekst: x.nazva, nom: x.kryteriy, de: de, misce: mt || '' });   // 02.10: nom — номінація (назви тепер однакові)
     var d = document.createElement('div'); d.className = 'card' + (hiKod && x.klyuch === hiKod ? ' hi' : '');
-    d.innerHTML = '<div>' + x.znachok + ' <span class="medal ' + medalClass(x.medal) + '">' + x.medalNazva + '</span></div>' +
+    d.innerHTML = '<div>' + x.znachok + ' <span class="medal ' + medalClass(x.medal) + '">' + esc(x.medalNazva) + '</span></div>' +
       '<div class="nm">' + esc(x.nazva) + '</div>' +
-      '<div class="md">' + esc(de) + (mt ? ' · <b>' + esc(mt) + '</b>' : '') + '</div>';
+      '<div class="md">' + 'номінація «' + esc(x.kryteriy) + '» · ' + esc(de) + (mt ? ' · <b>' + esc(mt) + '</b>' : '') + '</div>';
     best.appendChild(d);
   });
   var tb = el('all').querySelector('tbody'); tb.innerHTML = '';
@@ -538,8 +570,8 @@ async function show(kod, hiKod) {
   ryadky.forEach(function (x) {
     var tr = document.createElement('tr'); if (hiKod && x.klyuch === hiKod) tr.className = 'hi';
     var mt = tekstMiscya(x);
-    tr.innerHTML = '<td>' + esc(x.nazva) + '</td><td>' + esc(x.rivenNazva) + '</td>' +
-      '<td><span class="medal ' + medalClass(x.medal) + '">' + x.medalNazva + '</span></td><td>' + (mt ? esc(mt) : '—') + '</td>';
+    tr.innerHTML = '<td>' + esc(x.kryteriy) + '</td><td>' + esc(x.rivenNazva) + '</td>' +
+      '<td><span class="medal ' + medalClass(x.medal) + '">' + esc(x.medalNazva) + '</span></td><td>' + (mt ? esc(mt) : '—') + '</td>';
     tb.appendChild(tr);
   });
   el('allTitle').textContent = 'Усі нагороди: ' + n.length;
@@ -620,18 +652,52 @@ function kopiya(txt, btn) {
 }
 el('copyWidget').onclick = function () { el('formPanel').scrollIntoView({ behavior: 'smooth' }); el('fEmail').focus(); };
 el('shCopy').onclick = function () { kopiya(pageUrl(currentKod), this); };
-el('btnMaket').onclick = function () { el('fMaket').checked = true; el('formPanel').scrollIntoView({ behavior: 'smooth' }); el('fEmail').focus(); };
+/* ── заявка на нагороду зі «ЗРАЗКОМ» (02.10.2026) ── */
+var zNomObr = null;
+function zNomKnopky() {
+  var n = nagorody(kartkaPotochna), box = el('zNom'); box.innerHTML = '';
+  // перша кнопка — «Лідер галузі 2026» (найкращий результат підприємства), далі — решта його номінацій
+  n.forEach(function (x, i) {
+    var b = document.createElement('button'); b.className = 'ghost'; b.setAttribute('data-nom', x.klyuch);
+    b.textContent = i === 0 ? 'Лідер галузі 2026' : x.kryteriy + ' · ' + x.medalNazva + (x.riven === 'н' ? ' · Україна' : ' · область');
+    b.onclick = function () { zObraty(x.klyuch); };
+    box.appendChild(b);
+  });
+  if (n.length) zObraty(n[0].klyuch);
+}
+function zObraty(kl) {
+  zNomObr = kl;
+  el('zNom').querySelectorAll('button').forEach(function (b) { b.style.background = b.getAttribute('data-nom') === kl ? '#1d2b4f' : ''; b.style.color = b.getAttribute('data-nom') === kl ? '#fff' : ''; });
+  el('zImg').src = CONFIG.ZRAZOK_URL ? CONFIG.ZRAZOK_URL + '?edrpou=' + currentKod + '&nom=' + encodeURIComponent(kl) + '&t=' + Math.floor(Date.now() / 3600000) : 'img/zrazok-demo.png';
+}
+el('btnZamovyty').onclick = function () { el('zayavka').classList.remove('hidden'); zNomKnopky(); el('zayavka').scrollIntoView({ behavior: 'smooth' }); };
+el('zImg').onerror = function () { el('zMsg').textContent = 'Зразок зараз недоступний — заявку все одно можна надіслати.'; };
+el('zImg').onload = function () { if (el('zMsg').textContent.indexOf('Зразок') === 0) el('zMsg').textContent = ''; };
+el('zSend').onclick = async function () {
+  var zm = el('zMsg'), pib = el('zPib').value.trim(), tel = el('zTel').value.trim();
+  if (pib.length < 3) { zm.textContent = 'Вкажіть, будь ласка, ім’я та посаду.'; el('zPib').focus(); return; }
+  if (tel.replace(/\D/g, '').length < 9) { zm.textContent = 'Вкажіть, будь ласка, телефон.'; el('zTel').focus(); return; }
+  var dani = { edrpou: currentKod, nom: zNomObr, pib: pib, tel: tel, shcho: el('zShcho').value };
+  zm.textContent = 'Надсилаю…'; el('zSend').disabled = true;
+  try {
+    var r = await fetch(CONFIG.ZAYAVKA_URL, { method: 'POST', body: JSON.stringify(dani) });   // тіло без Content-Type: json → без preflight
+    var o = {}; try { o = await r.json(); } catch (e) {}
+    if (r.ok && o.ok) { zm.textContent = 'Дякуємо! Заявку отримано — менеджер зв’яжеться з Вами.'; return; }
+    zm.textContent = o.error || 'Не вдалося надіслати. Зателефонуйте нам: +38 (093) 025-80-00.';
+  } catch (e) { zm.textContent = 'Не вдалося надіслати. Зателефонуйте нам: +38 (093) 025-80-00.'; }
+  el('zSend').disabled = false;
+};
 
 /* ── форма ─────────────────────────────────────────────────── */
 el('fSend').onclick = async function () {
   var email = el('fEmail').value.trim(), tel = el('fTel').value.trim(), fm = el('fMsg');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { fm.textContent = 'Введіть, будь ласка, коректний e-mail.'; return; }
-  var dani = { edrpou: currentKod, nazva: el('nazva').textContent, email: email, tel: tel, maket: el('fMaket').checked ? 1 : 0, storinka: location.href,
+  var dani = { edrpou: currentKod, nazva: el('nazva').textContent, email: email, tel: tel, storinka: location.href,
     url: pageUrl(currentKod), nagorody: currentBest, png: {} };
   if (!ZNAKY_PNG.beydzh || !ZNAKY_PNG.synya || !ZNAKY_PNG.zolota) { fm.textContent = 'Знаки ще формуються — зачекайте кілька секунд і натисніть ще раз.'; return; }
   if (!CONFIG.FORM_URL) {
     location.href = 'mailto:' + CONFIG.KONTAKT_EMAIL + '?subject=' + encodeURIComponent('Знак «Лідер галузі 2026» — ' + dani.nazva + ' (ЄДРПОУ ' + currentKod + ')') +
-      '&body=' + encodeURIComponent('Прошу надіслати цифровий знак та інструкцію' + (dani.maket ? ' і макет настінної нагороди' : '') + '.\nE-mail: ' + email + (tel ? '\nТелефон: ' + tel : ''));
+      '&body=' + encodeURIComponent('Прошу надіслати цифровий знак та інструкцію' + '.\nE-mail: ' + email + (tel ? '\nТелефон: ' + tel : ''));
     return;
   }
   fm.textContent = 'Надсилаю… зазвичай до хвилини, не закривайте сторінку.';
