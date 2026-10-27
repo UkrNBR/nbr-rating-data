@@ -102,6 +102,8 @@ button.gold{background:#C5981B}button.gold:hover{background:#A8810F}
 #stage svg{max-width:min(380px,100%);height:auto;filter:drop-shadow(0 6px 20px rgba(36,51,79,.18))}
 .acts{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:14px}
 .hint{font-size:13px;color:#6C7A96;margin-top:8px;line-height:1.55}
+/* 27.10.2026 Валерій: «погано видно що заявку прийнято — більшим шрифтом і зеленим» */
+.hint.ok{font-size:19px;font-weight:700;color:#1E8E3E}
 pre.code{background:#EEF1F7;border-radius:10px;padding:12px;font:12px/1.5 Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-all;max-height:120px;overflow:auto;margin:6px 0 8px;color:#333}
 ol.steps{padding-left:20px;margin:6px 0 0;font-size:14px}
 ol.steps li{margin:4px 0}
@@ -702,11 +704,11 @@ el('zSend').onclick = async function () {
   if (pib.length < 3) { zm.textContent = 'Вкажіть, будь ласка, ім’я та посаду.'; el('zPib').focus(); return; }
   if (tel.replace(/\D/g, '').length < 9) { zm.textContent = 'Вкажіть, будь ласка, телефон.'; el('zTel').focus(); return; }
   var dani = { edrpou: currentKod, nom: zNomObr, pib: pib, tel: tel, shcho: el('zShcho').value };
-  zm.textContent = 'Надсилаю…'; el('zSend').disabled = true;
+  zm.className = 'hint'; zm.textContent = 'Надсилаю…'; el('zSend').disabled = true;
   try {
     var r = await fetch(CONFIG.ZAYAVKA_URL, { method: 'POST', body: JSON.stringify(dani) });   // тіло без Content-Type: json → без preflight
     var o = {}; try { o = await r.json(); } catch (e) {}
-    if (r.ok && o.ok) { zm.textContent = 'Дякуємо! Заявку отримано — менеджер зв’яжеться з Вами.'; return; }
+    if (r.ok && o.ok) { zm.className = 'hint ok'; zm.textContent = '✅ Дякуємо! Заявку отримано — менеджер зв’яжеться з Вами.'; return; }
     zm.textContent = o.error || 'Не вдалося надіслати. Зателефонуйте нам: +38 (093) 025-80-00.';
   } catch (e) { zm.textContent = 'Не вдалося надіслати. Зателефонуйте нам: +38 (093) 025-80-00.'; }
   el('zSend').disabled = false;
@@ -724,13 +726,13 @@ el('fSend').onclick = async function () {
       '&body=' + encodeURIComponent('Прошу надіслати цифровий знак та інструкцію' + '.\nE-mail: ' + email + (tel ? '\nТелефон: ' + tel : ''));
     return;
   }
-  fm.textContent = 'Надсилаю… зазвичай до хвилини, не закривайте сторінку.';
+  fm.className = 'hint'; fm.textContent = 'Надсилаю… зазвичай до хвилини, не закривайте сторінку.';
   el('fSend').disabled = true;
   try {
     // знаки для листа — у 1× (700/640 px): у 4 рази менше даних, ніж 2× для завантаження (повільний інтернет — до 1 хв)
     for (var kz in ZN) dani.png[kz] = await zmenshytyPng(ZNAKY_PNG[kz], ZN[kz].w);
     await fetch(CONFIG.FORM_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(dani) });
-    fm.textContent = 'Дякуємо! Лист надійде на ' + email + ' протягом кількох хвилин.';
+    fm.className = 'hint ok'; fm.textContent = '✅ Дякуємо! Лист надійде на ' + email + ' протягом кількох хвилин.';
     el('fSend').disabled = true;
   } catch (e) { el('fSend').disabled = false; fm.textContent = 'Не вдалося надіслати. Напишіть нам на ' + CONFIG.KONTAKT_EMAIL; }
 };
