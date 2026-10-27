@@ -31,6 +31,14 @@ const CONFIG = {
 };
 </script>
 <script>
+/* 27.10.2026 Валерій: ПУБЛІЧНИЙ ВИГЛЯД за ?p=1 — сторонні (зі знака, соцмереж, сайту підприємства) бачать лише підтвердження. Нових глобалів нема (пастка 144). */
+(function(){ try{
+  if (new URLSearchParams(location.search).get('p') !== '1') return;
+  document.documentElement.classList.add('publ');
+  document.addEventListener('DOMContentLoaded', function(){ var z = document.getElementById('znaky'), h = z && z.previousElementSibling; if (h && h.tagName === 'H2') h.textContent = 'Цифрові знаки підприємства'; });
+}catch(e){} })();
+</script>
+<script>
 /* 05.10.2026, рішення Валерія «Прибрати лише на сайті»: ВБУДОВАНИЙ РЕЖИМ — лише всередині нового сайту НБР.
    Вмикається ТІЛЬКИ коли сторінка у вікні (iframe) І (адреса має ?vbud=1 від шаблону нового сайту, або сторінка-власник
    https://nbr-test.unbr.com.ua/, або це те саме вікно, де режим уже ввімкнено — window.name). Тоді ховаються картинка
@@ -128,6 +136,8 @@ ol.steps li{margin:4px 0}
 @media (max-width:640px){.znaky{grid-template-columns:1fr 1fr 1fr;gap:6px}.znaky figcaption button{font-size:11px;padding:7px 8px}#all thead{display:none}#all tr{display:block;padding:8px 0;border-bottom:1px solid #EEF1F7}#all tr:last-child{border-bottom:0}#all td{display:inline-block;border:0;padding:2px 8px 2px 0}#all td:first-child{display:block;font-weight:600;padding-bottom:4px}.best{grid-template-columns:1fr}.foto{grid-template-columns:1fr 1fr}.meta{grid-template-columns:1fr}.top .in{justify-content:center;text-align:center}}
 /* 05.10.2026: вбудований режим (див. скрипт угорі) — лише всередині нового сайту НБР */
 .vbud .top,.vbud .foot,.vbud img[src$="prays-storinka-2-nagorody.png"]{display:none!important}
+/* 27.10.2026 Валерій: ПУБЛІЧНИЙ ВИГЛЯД (?p=1) — для тих, хто прийшов зі знака: лише підтвердження, без прайсу/замовлення/інструкцій/форми */
+.publ .vlasnyk{display:none!important}.publ .znaky img{cursor:default;pointer-events:none}
 </style>
 </head>
 <body>
@@ -177,10 +187,11 @@ ol.steps li{margin:4px 0}
   <div class="panel">
     <h2>Ваші цифрові знаки вже створені та є у публічному доступі <span class="sub" style="font-weight:500">(безкоштовно, назавжди)</span></h2>
     <div class="znaky" id="znaky">
-      <figure><img id="zn-beydzh" alt="Цифровий бейдж «Лідер галузі 2026»"><figcaption><button class="ghost" data-zn="beydzh">Завантажити PNG</button><label class="shL"><input type="checkbox" class="shZn" value="beydzh" checked> поділитись</label></figcaption></figure>
-      <figure><img id="zn-synya" alt="Цифрова медаль «Лідер галузі 2026» (синя)"><figcaption><button class="ghost" data-zn="synya">Завантажити PNG</button><label class="shL"><input type="checkbox" class="shZn" value="synya"> поділитись</label></figcaption></figure>
-      <figure><img id="zn-zolota" alt="Цифрова медаль «Лідер галузі 2026» (золота)"><figcaption><button class="ghost" data-zn="zolota">Завантажити PNG</button><label class="shL"><input type="checkbox" class="shZn" value="zolota"> поділитись</label></figcaption></figure>
+      <figure><img id="zn-beydzh" alt="Цифровий бейдж «Лідер галузі 2026»"><figcaption class="vlasnyk"><button class="ghost" data-zn="beydzh">Завантажити PNG</button><label class="shL"><input type="checkbox" class="shZn" value="beydzh" checked> поділитись</label></figcaption></figure>
+      <figure><img id="zn-synya" alt="Цифрова медаль «Лідер галузі 2026» (синя)"><figcaption class="vlasnyk"><button class="ghost" data-zn="synya">Завантажити PNG</button><label class="shL"><input type="checkbox" class="shZn" value="synya"> поділитись</label></figcaption></figure>
+      <figure><img id="zn-zolota" alt="Цифрова медаль «Лідер галузі 2026» (золота)"><figcaption class="vlasnyk"><button class="ghost" data-zn="zolota">Завантажити PNG</button><label class="shL"><input type="checkbox" class="shZn" value="zolota"> поділитись</label></figcaption></figure>
     </div>
+    <div class="vlasnyk">
     <p style="font-size:14px;margin:6px 0 0">Кожен знак клікабельний: веде на <b>сторінку підтвердження рейтингу</b> у відкритому реєстрі. Це і є публічний доказ для Ваших клієнтів, і зовнішнє посилання з тематичного ресурсу — <b>покращує SEO Вашого сайту</b>.</p>
 
     <h3>Як розмістити знак</h3>
@@ -208,10 +219,11 @@ ol.steps li{margin:4px 0}
       <button class="ghost" id="shCopy">Скопіювати посилання</button>
     </div>
     <p class="hint" id="shMsg"></p>
+    </div>
   </div>
 
   <!-- 4. ФОРМА -->
-  <div class="panel form" id="formPanel">
+  <div class="panel form vlasnyk" id="formPanel">
     <h2>Надіслати знак та інструкцію на e-mail</h2>
     <p class="sub">Отримаєте лист із файлами знака (PNG і SVG), кодом віджета та інструкцією — щоб передати відповідальному за сайт.</p>
     <div class="row">
@@ -222,7 +234,7 @@ ol.steps li{margin:4px 0}
   </div>
 
   <!-- 5. НАГОРОДИ — КОПІЯ стор. 2 затвердженого прайса PRAYS-2026-V6 (= стор. 3 вкладення холодного листа), без шапки з логотипом -->
-  <div class="panel" style="padding:0;overflow:hidden">
+  <div class="panel vlasnyk" style="padding:0;overflow:hidden">
     <img src="img/prays-storinka-2-nagorody.png" alt="Нагороди 2026: настінна нагорода «Лідер галузі 2026», іменні нагороди «Лідер року» і «Спеціаліст року», ордени та медалі" style="display:block;width:100%;height:auto">
     <div style="padding:16px 22px 22px">
       <!-- 27.10.2026 вказівка Валерія: заклик + фото Валерія з нагородою з прайсу (aktyvy/valeriy.png, лише зменшено) + ціна «від 8 тис. грн» -->
@@ -570,7 +582,7 @@ async function poNazvi(zapyt) {
 var currentName = '', currentKod = '', kartkaPotochna = null;
 var currentBest = [];
 function el(id) { return document.getElementById(id); }
-function pageUrl(kod) { return CONFIG.PAGE_URL + '?edrpou=' + kod; }
+function pageUrl(kod) { return CONFIG.PAGE_URL + '?edrpou=' + kod + '&p=1'; }   // 27.10.2026: посилання для сторонніх (знак, поділитись, віджет) — публічний вигляд
 function medalClass(m) { return m === 'З' ? 'z' : m === 'С' ? 's' : 'b'; }
 
 function tekstMiscya(x) {
