@@ -115,6 +115,7 @@ ol.steps{padding-left:20px;margin:6px 0 0;font-size:14px}
 ol.steps li{margin:4px 0}
 .share{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .share a,.share button{font-size:13px;padding:9px 14px}
+.shL{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;margin-top:6px;cursor:pointer}
 .znaky{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:14px 0 6px}.znaky figure{margin:0;text-align:center}.znaky img{width:100%;max-width:230px;height:auto;cursor:pointer}.znaky figcaption{margin-top:8px}.znaky figcaption button{font-size:13px;padding:8px 12px}
 .foto{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:10px 0 14px}
 .foto figure{margin:0;text-align:center;font-size:12px;color:#6C7A96}
@@ -176,9 +177,9 @@ ol.steps li{margin:4px 0}
   <div class="panel">
     <h2>Ваші цифрові знаки вже створені та є у публічному доступі <span class="sub" style="font-weight:500">(безкоштовно, назавжди)</span></h2>
     <div class="znaky" id="znaky">
-      <figure><img id="zn-beydzh" alt="Цифровий бейдж «Лідер галузі 2026»"><figcaption><button class="ghost" data-zn="beydzh">Завантажити PNG</button></figcaption></figure>
-      <figure><img id="zn-synya" alt="Цифрова медаль «Лідер галузі 2026» (синя)"><figcaption><button class="ghost" data-zn="synya">Завантажити PNG</button></figcaption></figure>
-      <figure><img id="zn-zolota" alt="Цифрова медаль «Лідер галузі 2026» (золота)"><figcaption><button class="ghost" data-zn="zolota">Завантажити PNG</button></figcaption></figure>
+      <figure><img id="zn-beydzh" alt="Цифровий бейдж «Лідер галузі 2026»"><figcaption><button class="ghost" data-zn="beydzh">Завантажити PNG</button><label class="shL"><input type="checkbox" class="shZn" value="beydzh" checked> поділитись</label></figcaption></figure>
+      <figure><img id="zn-synya" alt="Цифрова медаль «Лідер галузі 2026» (синя)"><figcaption><button class="ghost" data-zn="synya">Завантажити PNG</button><label class="shL"><input type="checkbox" class="shZn" value="synya"> поділитись</label></figcaption></figure>
+      <figure><img id="zn-zolota" alt="Цифрова медаль «Лідер галузі 2026» (золота)"><figcaption><button class="ghost" data-zn="zolota">Завантажити PNG</button><label class="shL"><input type="checkbox" class="shZn" value="zolota"> поділитись</label></figcaption></figure>
     </div>
     <p style="font-size:14px;margin:6px 0 0">Кожен знак клікабельний: веде на <b>сторінку підтвердження рейтингу</b> у відкритому реєстрі. Це і є публічний доказ для Ваших клієнтів, і зовнішнє посилання з тематичного ресурсу — <b>покращує SEO Вашого сайту</b>.</p>
 
@@ -193,19 +194,20 @@ ol.steps li{margin:4px 0}
       <li>У редакторі сайту додайте зображення і вкажіть для нього посилання: <span id="lnk1" style="word-break:break-all"></span></li>
     </ol>
 
+    <!-- 27.10.2026 вказівка Валерія: ділитись не сторінкою, а самими знаками; знак/посилання веде на сторінку підприємства -->
     <b style="font-size:14px;display:block;margin-top:14px">3. У соцмережах і в підписі листа</b>
     <ol class="steps">
-      <li>LinkedIn / Facebook / Instagram: опублікуйте PNG знака як зображення, у тексті допису додайте посилання на цю сторінку.</li>
-      <li>Підпис у e-mail: вставте PNG (ширина ≈150 px) і зробіть його посиланням на цю сторінку.</li>
+      <li>Facebook, Instagram, LinkedIn, Telegram, Viber: опублікуйте сам знак як зображення — один, два чи три. Під знаком додайте лише посилання на сторінку Вашого підприємства в реєстрі: <span id="lnk2" style="word-break:break-all"></span></li>
+      <li>Підпис у e-mail: вставте знак (ширина ≈150 px) і зробіть його посиланням на сторінку Вашого підприємства в реєстрі.</li>
     </ol>
 
-    <h3>Поділитись сторінкою</h3>
+    <h3>Поділитись знаком</h3>
+    <p class="hint" style="margin-top:2px">Позначте під знаками «поділитись» (один, два чи три) і натисніть кнопку. На телефоні відкриється вікно «Поділитися» з Вашими знаками і посиланням на сторінку підприємства.</p>
     <div class="share">
-      <a class="btn ghost" id="shFb" target="_blank" rel="noopener">Facebook</a>
-      <a class="btn ghost" id="shLi" target="_blank" rel="noopener">LinkedIn</a>
-      <a class="btn ghost" id="shTg" target="_blank" rel="noopener">Telegram</a>
+      <button id="shZnak">Поділитись знаком</button>
       <button class="ghost" id="shCopy">Скопіювати посилання</button>
     </div>
+    <p class="hint" id="shMsg"></p>
   </div>
 
   <!-- 4. ФОРМА -->
@@ -627,10 +629,7 @@ async function show(kod, hiKod) {
   // посилання, поділитись
   var url = pageUrl(currentKod);
   el('lnk1').textContent = url;
-  var t = encodeURIComponent('«' + k.n + '» — Лідер галузі 2026. Підтвердження у реєстрі Національного бізнес-рейтингу');
-  el('shFb').href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url);
-  el('shLi').href = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(url);
-  el('shTg').href = 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + t;
+  el('lnk2').textContent = url; el('shMsg').textContent = '';
 
   var today = new Date();
   el('date').textContent = today.toLocaleDateString('uk-UA');
@@ -692,6 +691,26 @@ function kopiya(txt, btn) {
 }
 el('copyWidget').onclick = function () { el('formPanel').scrollIntoView({ behavior: 'smooth' }); el('fEmail').focus(); };
 el('shCopy').onclick = function () { kopiya(pageUrl(currentKod), this); };
+/* 27.10.2026: «Поділитись знаком» — ділимося самими знаками (PNG) + посилання на сторінку підприємства */
+el('shZnak').onclick = async function () {
+  var m = el('shMsg'), url = pageUrl(currentKod);
+  var ks = Array.prototype.map.call(document.querySelectorAll('.shZn:checked'), function (x) { return x.value; });
+  if (!ks.length) { m.textContent = 'Позначте під знаком «поділитись» — хоча б один.'; return; }
+  if (ks.some(function (k) { return !ZNAKY_PNG[k]; })) { m.textContent = 'Знаки ще формуються — зачекайте кілька секунд і натисніть ще раз.'; return; }
+  var files = [];
+  for (var i = 0; i < ks.length; i++) {
+    var bl = await (await fetch(ZNAKY_PNG[ks[i]])).blob();
+    files.push(new File([bl], currentName + '_lider-galuzi-2026_' + ks[i] + '.png', { type: 'image/png' }));
+  }
+  if (navigator.canShare && navigator.share) {
+    try { if (navigator.canShare({ files: files })) { await navigator.share({ files: files, text: url }); m.textContent = ''; return; } }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  files.forEach(function (f, n) { setTimeout(function () { dl(f, f.name); }, n * 400); });
+  var ok = false; try { await navigator.clipboard.writeText(url); ok = true; } catch (e) {}
+  m.textContent = (files.length > 1 ? 'Знаки збережено' : 'Знак збережено') + ' у «Завантаження»' + (ok ? ', посилання скопійовано' : '') +
+    '. Створіть допис у соцмережі, додайте знак як зображення, а під ним вставте посилання' + (ok ? ' (Cmd+V / Ctrl+V).' : ': ' + url);
+};
 /* ── заявка на нагороду зі «ЗРАЗКОМ» (02.10.2026) ── */
 var zNomObr = null;
 function zNomKnopky() {
