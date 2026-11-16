@@ -6,9 +6,6 @@
 <title>Сторінка підприємства у реєстрі «Лідер галузі 2026» — НБР</title>
 <meta name="robots" content="noindex">
 
-<!-- ═══════════════════════════════════════════════════════════════
-     НАЛАШТУВАННЯ — ЄДИНЕ МІСЦЕ, ЯКЕ ТРЕБА ЗМІНИТИ ПРИ ПЕРЕНОСІ НА TILDA
-     ═══════════════════════════════════════════════════════════════ -->
 <script>
 const CONFIG = {
   // Дані рейтингу 2026 у хмарі (README: 03-reytyng-i-metodologiya/dani/shardy-2026/README.md)
@@ -16,7 +13,7 @@ const CONFIG = {
   // Полегшені файли для знака (коротка назва + КВЕД, як у листі) — beydzh/{0..99}.json
   BEYDZH_URL:"https://ukrnbr.github.io/nbr-rating-data/2026/beydzh/",
   // Адреса ЦІЄЇ сторінки для посилань у віджеті та «Поділитись» (без ?edrpou=)
-  PAGE_URL:  "https://www.nbr.com.ua/rating",
+  PAGE_URL:  "https://www.nbr.com.ua/perevirka-rejtingu-pidpriyemstva",
   // Куди йдуть заявки з форми (веб-застосунок Apps Script). Порожньо = форма показує лист на e-mail.
   FORM_URL:  "https://script.google.com/macros/s/AKfycbzuO6EVn4I5TS-5f6reNOmEX5TmrDRrk1noIFGA0FgUOHN2mCE0agsJzy9W19D-Zow/exec",
   // Лічильник відкриттів (1×1 піксель). Порожньо = вимкнено.
@@ -148,7 +145,6 @@ ol.steps li{margin:4px 0}
 
 <div class="wrap">
 
-  <!-- ЕКРАН БЕЗ КОМПАНІЇ: пошук -->
   <div class="panel" id="welcome">
     <h1>Перевірити результати підприємства у рейтингу «Лідер галузі 2026»</h1>
     <p class="sub">Введіть код ЄДРПОУ або назву підприємства — сторінка з усіма нагородами, місцями та цифровим знаком сформується автоматично.</p>
@@ -161,7 +157,6 @@ ol.steps li{margin:4px 0}
 
   <div id="page" class="hidden">
 
-  <!-- 1. ШАПКА: підтвердження + картка підприємства -->
   <div class="verify"><i>✓</i><span>Результати підтверджено. Дані відповідають публічному реєстру Національного бізнес-рейтингу 2026 року.</span></div>
   <div class="panel">
     <h1 id="nazva">—</h1>
@@ -173,7 +168,6 @@ ol.steps li{margin:4px 0}
     </div>
   </div>
 
-  <!-- 2. УСІ НАГОРОДИ -->
   <div class="panel">
     <h2>Результати рейтингування</h2>
     <p class="sub" style="margin-bottom:8px">Найкращі результати підприємства — по Україні та по області:</p>
@@ -183,7 +177,6 @@ ol.steps li{margin:4px 0}
     <p class="hint">Місце вказано всередині медальної групи ТОПу (золото · срібло · бронза). Понад 30-те місце числом не позначається.</p>
   </div>
 
-  <!-- 3. ЦИФРОВІ ЗНАКИ — як на стор. 1 затвердженого прайса (три знаки під кожного клієнта) -->
   <div class="panel">
     <h2>Ваші цифрові знаки вже створені та є у публічному доступі <span class="sub" style="font-weight:500">(безкоштовно, назавжди)</span></h2>
     <div class="znaky" id="znaky">
@@ -205,7 +198,6 @@ ol.steps li{margin:4px 0}
       <li>У редакторі сайту додайте зображення і вкажіть для нього посилання: <span id="lnk1" style="word-break:break-all"></span></li>
     </ol>
 
-    <!-- 27.10.2026 вказівка Валерія: ділитись не сторінкою, а самими знаками; знак/посилання веде на сторінку підприємства -->
     <b style="font-size:14px;display:block;margin-top:14px">3. У соцмережах і в підписі листа</b>
     <ol class="steps">
       <li>Facebook, Instagram, LinkedIn, Telegram, Viber: опублікуйте сам знак як зображення — один, два чи три. Під знаком додайте лише посилання на сторінку Вашого підприємства в реєстрі: <span id="lnk2" style="word-break:break-all"></span></li>
@@ -222,7 +214,6 @@ ol.steps li{margin:4px 0}
     </div>
   </div>
 
-  <!-- 4. ФОРМА -->
   <div class="panel form vlasnyk" id="formPanel">
     <h2>Надіслати знак та інструкцію на e-mail</h2>
     <p class="sub">Отримаєте лист із файлами знака (PNG і SVG), кодом віджета та інструкцією — щоб передати відповідальному за сайт.</p>
@@ -233,11 +224,9 @@ ol.steps li{margin:4px 0}
     <div class="row" style="margin-top:8px"><button id="fSend">Надіслати</button><span class="hint" id="fMsg"></span></div>
   </div>
 
-  <!-- 5. НАГОРОДИ — КОПІЯ стор. 2 затвердженого прайса PRAYS-2026-V6 (= стор. 3 вкладення холодного листа), без шапки з логотипом -->
   <div class="panel vlasnyk" style="padding:0;overflow:hidden">
     <img src="img/prays-storinka-2-nagorody.png" alt="Нагороди 2026: настінна нагорода «Лідер галузі 2026», іменні нагороди «Лідер року» і «Спеціаліст року», ордени та медалі" style="display:block;width:100%;height:auto">
     <div style="padding:16px 22px 22px">
-      <!-- 27.10.2026 вказівка Валерія: заклик + фото Валерія з нагородою з прайсу (aktyvy/valeriy.png, лише зменшено) + ціна «від 8 тис. грн» -->
       <div class="zaklyk">
         <img src="img/valeriy-nagoroda.png" width="220" height="225" alt="Настінна нагорода «Лідер галузі 2026»" loading="lazy">
         <div>
@@ -246,7 +235,6 @@ ol.steps li{margin:4px 0}
           <button class="gold" id="btnZamovyty">Замовити нагороду</button>
         </div>
       </div>
-      <!-- 02.10.2026 (вказівка Валерія 11:31/11:40): заявка менеджеру зі «ЗРАЗКОМ», номінацію клієнт обирає кнопками -->
       <div id="zayavka" class="hidden" style="margin-top:18px">
         <h3 style="margin:0 0 6px">Заявка на нагороду</h3>
         <p class="sub" style="margin:0 0 8px">За якою номінацією виготовити нагороду? Оберіть одну — нижче з’явиться зразок макета саме з нею.</p>
@@ -270,7 +258,6 @@ ol.steps li{margin:4px 0}
     </div>
   </div>
 
-  <!-- 6. ІНШЕ ПІДПРИЄМСТВО -->
   <div class="panel">
     <h2>Перевірити рейтинг іншого підприємства</h2>
     <div class="row">
@@ -280,10 +267,9 @@ ol.steps li{margin:4px 0}
     <div id="msg1" class="hint"></div>
   </div>
 
-  <p class="hint" style="margin:-6px 0 0">Дата перевірки: <span id="date">—</span> · Ідентифікатор запиту: <span id="reqid">—</span> · «Лідер галузі»® — зареєстрована торгова марка Національного бізнес-рейтингу.</p>
+  <p class="hint" style="margin:-6px 0 0">Дата перевірки: <span id="date">—</span> · Ідентифікатор запиту: <span id="reqid">—</span> · «Лідер галузі» — торговельна марка, свідоцтво України № 169210; використання за дозволом ТОВ «Торгово-промисловий рейтинг».</p>
 
-  </div><!-- /page -->
-  <div id="msg"></div>
+  </div>  <div id="msg"></div>
 </div>
 
 <div class="foot">
