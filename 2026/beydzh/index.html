@@ -495,6 +495,18 @@ function rozkladNazvyBahato(tekst, shyrMm_, bazovyyPt, smuhaMm, pxNaMm) {  // = 
   });
   return najkr;
 }
+/** 25.11.2026: наддовга назва — відкидаємо слова з кінця, доки не стане в 1–2 рядки; наприкінці «…». Вертає [рядки, кегль, зсув] або null. */
+function skorotytyNazvu(tekst, z, smuha, pxNaMm, naysh) {
+  var slova = String(tekst).split(/\s+/);
+  while (slova.length > 1) {
+    slova.pop();
+    while (slova.length > 1 && /^(з|із|зі|і|й|та|в|у|на|для|при|по|до|від)$/i.test(slova[slova.length - 1].replace(/[,;:]+$/, ''))) slova.pop();
+    var kand = slova.join(' ').replace(/[,;:\-–—]+$/, '') + '…';
+    var rz = rozkladNazvy(kand, z.shyr, z.pt[0], smuha, pxNaMm);
+    if (naysh(rz[0], rz[1]) <= z.shyr + 0.3) return rz;
+  }
+  return null;
+}
 var ZN_IMG = {};
 function znImg(k) {
   return ZN_IMG[k] || (ZN_IMG[k] = new Promise(function (res, rej) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = rej; im.src = ZN[k].fajl; }));
@@ -512,6 +524,8 @@ async function malyuvatyZnak(k, nazva, brend, edrpou, kved) {
     var b = brend || nazva;
     rz = rozkladNazvy(b, z.shyr, z.pt[0], smuha, pxNaMm); ryadky = rz[0]; ptN = rz[1]; zsuv = rz[2];
     if (naysh(ryadky, ptN) > z.shyr + 0.3) { var bb = rozkladNazvyBahato(b, z.shyr, z.pt[0], smuha, pxNaMm); if (bb) { ryadky = bb.ryadky; ptN = bb.pt; zsuv = bb.zsuv; } }
+    // 25.11.2026 (Валерій: «зазвичай просто сам зменшуй»): назва не влазить навіть у 4 рядки — скорочуємо по словах з «…»
+    if (naysh(ryadky, ptN) > z.shyr + 0.3) { var sk = skorotytyNazvu(b, z, smuha, pxNaMm, naysh); if (sk) { ryadky = sk[0]; ptN = sk[1]; zsuv = sk[2]; } }
   }
   var kodRyadok = 'ЄДРПОУ ' + edrpou + (kved ? ' · КВЕД ' + kved : '');
   var ptK = keglPidShyrynu(kodRyadok, z.shyr, z.pt[1], 2.6, pxNaMm);
